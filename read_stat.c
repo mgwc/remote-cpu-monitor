@@ -58,11 +58,11 @@ void* read_idle_time(void* p) {
         num_readings++;
         
         if (curr_avg_usage_time < 0) {
-            printf("Average usage time = 0\n");
+            //printf("Average usage time = 0\n");
         } else if (curr_avg_usage_time > 100) {
-            printf("Average usage time = 100\n");
+            //printf("Average usage time = 100\n");
         } else {
-            printf("Average usage time = %f\n", curr_avg_usage_time);
+            //printf("Average usage time = %f\n", curr_avg_usage_time);
         }
         pthread_mutex_unlock(&lock);
     }

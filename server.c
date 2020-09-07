@@ -32,9 +32,9 @@ void* user_quit(void*);
 void* start_server(void* PORT_NUMBER)
 {
 
-    printf("Entered start_server\n");
+    //printf("Entered start_server\n");
     uint16_t CASTED_PORT = *((uint16_t*) PORT_NUMBER);
-    printf("Entered start_server; CASTED_PORT = %i\n", CASTED_PORT);
+    //printf("Entered start_server; CASTED_PORT = %i\n", CASTED_PORT);
     
       // structs to represent the server and client
       struct sockaddr_in server_addr,client_addr;    
@@ -46,7 +46,7 @@ void* start_server(void* PORT_NUMBER)
 	perror("Socket");
 	exit(1);
       }
-      int temp;
+      int temp = 1;
       if (setsockopt(sock,SOL_SOCKET,SO_REUSEADDR,&temp,sizeof(int)) == -1) {
 	perror("Setsockopt");
 	exit(1);
@@ -98,39 +98,56 @@ void* start_server(void* PORT_NUMBER)
 
         count++; // increment counter for debugging purposes
 
-        // this is the message that we'll send back
-        char* response = (char*)malloc(256 * sizeof(char));
+        // Create container for message to send back 
+        char* response = (char*)malloc(1024 * sizeof(char));
           
-        //sprintf(response, "HTTP/1.1 200 OK\nContent-Type: text/html\n\n<html><p>It works!<br>count=%d</p></html>", count);
-        sprintf(response, "HTTP/1.1 200 OK\nContent-Type: text/html\n\n<html><p>");
+        // Check whether request was to load page or to get JSON data
+        int request_type = strncmp(request, "GET /data", 9);
+        
+        if (request_type != 0) {           // Request to load page
           
-        pthread_mutex_lock(&lock);
-          
-        // Add latest CPU usage percentage to message
-        char response_additions_buf[512];
-        strcat(response, "Current/last CPU usage: ");
-        sprintf(response_additions_buf, "%f", curr_avg_usage_time);
-        strcat(response, response_additions_buf);
-        strcat(response, "</p>\n");
-          
-        // Add maximum CPU usage observed since program started to message
-        strcat(response, "<p>Maximum CPU usage in last hour: ");
-        sprintf(response_additions_buf, "%f", max_avg_usage_time);
-        strcat(response, response_additions_buf);
-        strcat(response, "</p>\n");
-          
-        // Add average CPU usage over past hour, or since program started if it has been running less than 1 hr
-        strcat(response, "<p>Average CPU usage over last hour: ");
-        double hour_avg = array_avg();
-        sprintf(response_additions_buf, "%f", hour_avg);
-        strcat(response, response_additions_buf);
-        strcat(response, "</p>\n");
-          
-        pthread_mutex_unlock(&lock);
-          
-        strcat(response, "</html>");
+            //sprintf(response, "HTTP/1.1 200 OK\nContent-Type: text/html\n\n<html><p>It works!<br>count=%d</p></html>", count);
+            sprintf(response, "HTTP/1.1 200 OK\nContent-Type: text/html\n\n<html><script src=\"https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js\"></script><p>");
 
-        printf("RESPONSE:\n%s\n", response);
+            pthread_mutex_lock(&lock);
+
+            // Add latest CPU usage percentage to message
+            char response_additions_buf[512];
+            strcat(response, "<p id=\"last_cpu_usage\">Current/last CPU usage: ");
+            sprintf(response_additions_buf, "%f", curr_avg_usage_time);
+            strcat(response, response_additions_buf);
+            strcat(response, "</p>\n");
+
+            // Add maximum CPU usage observed since program started to message
+            strcat(response, "<p id=\"max_cpu_usage\">Maximum CPU usage in last hour: ");
+            sprintf(response_additions_buf, "%f", max_avg_usage_time);
+            strcat(response, response_additions_buf);
+            strcat(response, "</p>\n");
+
+            // Add average CPU usage over past hour, or since program started if it has been running less than 1 hr
+            strcat(response, "<p id=\"avg_cpu_usage\">Average CPU usage over last hour: ");
+            double hour_avg = array_avg();
+            sprintf(response_additions_buf, "%f", hour_avg);
+            strcat(response, response_additions_buf);
+            strcat(response, "</p>\n");
+
+            pthread_mutex_unlock(&lock);
+
+            // Add auto-update button to HTML
+            strcat(response, "<p><button type=\"button\" id=\"autoUpdate\" onclick=\"setInterval(handle, 1000)\">Auto-Update</button></p>");
+            
+            // Add JavaScript for sending JSON request, receiving response, and using response
+            strcat(response, "<script>function handle() { $.getJSON(\"/data\", function (data, status) { var latest = data.latest; var max = data.max; var average = data.average; $('#avg_cpu_usage').html(\"Average CPU usage over last hour: \" + average); $('#max_cpu_usage').html(\"Maximum CPU usage in last hour: \" + max); $('#last_cpu_usage').html(\"Current/last CPU usage: \" + latest); } ); } </script>");
+
+            strcat(response, "</html>");
+        
+        } else {                          // Request for JSON data
+            pthread_mutex_lock(&lock);
+            sprintf(response, "HTTP/1.1 200 OK\nContent-Type: application/json\n\n{\"latest\" : \"%f\", \"max\" : \"%f\", \"average\" : \"%f\"}", curr_avg_usage_time, max_avg_usage_time, array_avg());
+            pthread_mutex_unlock(&lock);
+        }
+
+        //printf("RESPONSE:\n%s\n", response);
 
         // 6. send: send the outgoing message (response) over the socket
         // note that the second argument is a char*, and the third is the number of chars	
@@ -140,7 +157,7 @@ void* start_server(void* PORT_NUMBER)
 
         // 7. close: close the connection
         close(fd);
-        printf("Server closed connection\n");
+        //printf("Server closed connection\n");
        }
     }
 
@@ -184,7 +201,7 @@ void* user_quit(void* p) {
         if (user_input[0] == 'q') {
             if (user_input[1] == '\n') {
                 if (user_input[2] == '\0') {
-                    printf("Shutting down\n");
+                    //printf("Shutting down\n");
                     return (void*) 1;
                 }
             }
